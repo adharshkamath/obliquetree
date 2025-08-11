@@ -24,6 +24,13 @@ if sys.platform in ("win32", "linux", "darwin"):  # All platforms
             "-fstrict-aliasing",  # Enable strict aliasing
             "-fstack-protector-strong",  # Stack protection
             "-std=c++17",  # C++17 standard
+            # gdb debugging flags
+            "-g",  # Generate debug information
+            "-ggdb",  # Include GDB-specific debug information
+            "-fno-omit-frame-pointer",  # Keep frame pointers for debugging
+            "-fno-strict-aliasing",  # Disable strict aliasing for debugging
+            # "-fsanitize=address",  # Address sanitizer for debugging
+            # "-fsanitize=undefined",  # Undefined behavior sanitizer for debugging
         ]
         extra_link_args = []
 
@@ -89,12 +96,13 @@ setup(
         extensions,
         compiler_directives={
             "language_level": 3,
-            "boundscheck": False,
+            "boundscheck": True,
             "wraparound": False,
-            "initializedcheck": False,
+            "initializedcheck": True,
             "cdivision": True,
-            "nonecheck": False,
-            "overflowcheck": False,
+            "nonecheck": True,
+            "overflowcheck": True,
         },
+        gdb_debug=True,  # Enable GDB debugging
     ),
 )

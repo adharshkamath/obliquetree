@@ -12,9 +12,13 @@ cdef dict _recurse(const TreeNode* node):
 
     # Leaf node handling
     if node.is_leaf:
-        if node.value_multiclass:
+        if node.value_multiclass and node.n_classes > 0:
+            print(node.n_classes, "HERE 1")
+            values_list = []
+            for i in range(node.n_classes):
+                values_list.append(node.value_multiclass[i])
             base.update({
-                "values": [node.value_multiclass[i] for i in range(node.n_classes)]
+                "values": values_list
             })
         else:
             base.update({
@@ -35,9 +39,12 @@ cdef dict _recurse(const TreeNode* node):
             "threshold": node.threshold,
         })
 
-        if node.value_multiclass:
+        if node.value_multiclass and node.n_classes > 0:
+            values_list = []
+            for i in range(node.n_classes):
+                values_list.append(node.value_multiclass[i])
             base.update({
-                "values": [node.value_multiclass[i] for i in range(node.n_classes)]
+                "values": values_list
             })
         else:
             base.update({
@@ -52,9 +59,13 @@ cdef dict _recurse(const TreeNode* node):
         })
 
         # Add value or values based on multiclass
-        if node.value_multiclass:
+        if node.value_multiclass and node.n_classes > 0:
+            print(node.n_classes, "HERE 2")
+            values_list = []
+            for i in range(node.n_classes):
+                values_list.append(node.value_multiclass[i])
             base.update({
-                "values": [node.value_multiclass[i] for i in range(node.n_classes)]
+                "values": values_list
             })
         else:
             base.update({
@@ -163,14 +174,27 @@ cdef TreeNode* deserialize_tree(dict tree_dict, int n_features, int n_classes) e
     node.missing_go_left = tree_dict.get('missing_go_left', 1)
     node.n_classes = n_classes
     
-    # Handle multiclass values if present
-    if 'values' in tree_dict:
+    # Initialize split-related fields
+    node.feature_idx = -1
+    node.threshold = 0.0
+    node.n_pair = 0
+    node.n_category = 0
+    
+    # Always allocate value_multiclass for multiclass problems
+    if n_classes > 1:
         node.value_multiclass = <double*>malloc(n_classes * sizeof(double))
         if not node.value_multiclass:
             free(node)
             raise MemoryError("Failed to allocate memory for value_multiclass")
+        
+        # Initialize with zeros first
         for i in range(n_classes):
-            node.value_multiclass[i] = tree_dict['values'][i]
+            node.value_multiclass[i] = 0.0
+        
+        # Fill with actual values if present
+        if 'values' in tree_dict:
+            for i in range(min(n_classes, len(tree_dict['values']))):
+                node.value_multiclass[i] = tree_dict['values'][i]
     
     # If not a leaf node, handle split information
     if not node.is_leaf:
@@ -180,11 +204,15 @@ cdef TreeNode* deserialize_tree(dict tree_dict, int n_features, int n_classes) e
         
         # Handle oblique splits
         if tree_dict.get('is_oblique', False):
+            node.feature_idx = -2
             node.n_pair = len(tree_dict['weights'])
             
             # Allocate and set weights
             node.x = <double*>malloc(node.n_pair * sizeof(double))
             if not node.x:
+                if node.value_multiclass:
+                    free(node.value_multiclass)
+                free(node)
                 raise MemoryError("Failed to allocate memory for weights")
             
             for i in range(node.n_pair):
@@ -193,6 +221,10 @@ cdef TreeNode* deserialize_tree(dict tree_dict, int n_features, int n_classes) e
             # Allocate and set feature indices
             node.pair = <int*>malloc(node.n_pair * sizeof(int))
             if not node.pair:
+                free(node.x)
+                if node.value_multiclass:
+                    free(node.value_multiclass)
+                free(node)
                 raise MemoryError("Failed to allocate memory for feature indices")
             
             for i in range(node.n_pair):
@@ -205,10 +237,17 @@ cdef TreeNode* deserialize_tree(dict tree_dict, int n_features, int n_classes) e
             
             node.categories_go_left = <int*>malloc(node.n_category * sizeof(int))
             if not node.categories_go_left:
+                if node.value_multiclass:
+                    free(node.value_multiclass)
+                free(node)
                 raise MemoryError("Failed to allocate memory for categories")
             
             for i in range(node.n_category):
                 node.categories_go_left[i] = categories[i]
+        else:
+            # Set default values for non-oblique, non-categorical splits
+            node.n_pair = 0
+            node.n_category = 0
         
         # Recursively deserialize child nodes
         node.left = deserialize_tree(tree_dict['left'], n_features, n_classes)

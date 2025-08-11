@@ -738,8 +738,17 @@ cdef tuple[double*, int*] analyze(
     
     
     cdef double[::1] dP_R1_w, dP_L1_w, tmp_y_dp_vec, dS_R_w, y_dp_vec #class
-    cdef double[::1] temp_vec1, temp_vec2, temp_grad #reg
-    cdef double[::1] class_counts_L, class_counts_R, P_k_L, P_k_R #mul
+    #cdef double[::1] temp_vec1, temp_vec2, temp_grad #reg
+    
+    cdef double[::1] temp_vec1 = np.empty(N, dtype=np.float64)   # (N,)  preallocated for calculations
+    cdef double[::1] temp_vec2 = np.empty(N, dtype=np.float64)   # (N,)  preallocated for calculations
+    cdef double[::1] temp_grad = np.empty(n_pair, dtype=np.float64)   # (d,)  preallocated for temporary gradient
+    #cdef double[::1] class_counts_L, class_counts_R, P_k_L, P_k_R #mul
+
+    cdef double[::1] class_counts_L  = np.empty(n_classes,   dtype=np.float64)
+    cdef double[::1] class_counts_R  = np.empty(n_classes,   dtype=np.float64)
+    cdef double[::1] P_k_L  = np.empty(n_classes,   dtype=np.float64)
+    cdef double[::1] P_k_R  = np.empty(n_classes,   dtype=np.float64)
 
     if task == 0:
         if linear:

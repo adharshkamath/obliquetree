@@ -100,6 +100,8 @@ def export_tree(
             "The tree has not been fitted yet. Please call the 'fit' method to train the tree before using this function."
         )
 
+    print("Exporting tree to JSON format...")
+    print(f"State: {tree.__getstate__()}")
     tree_dict = _export_tree(tree)  # Assuming this function is implemented elsewhere.
 
     if out_file is not None:
